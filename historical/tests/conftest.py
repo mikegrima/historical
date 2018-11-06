@@ -1,4 +1,4 @@
-# pylint: disable=E0401,C0103
+# pylint: disable=E0401,C0103,W0621,W0613
 """
 .. module: historical.tests.test_s3
     :platform: Unix
@@ -7,6 +7,7 @@
 .. author:: Kevin Glisson <kglisson@netflix.com>
 .. author:: Mike Grima <mgrima@netflix.com>
 """
+import json
 import os
 
 import boto3
@@ -21,41 +22,49 @@ import pytest
 
 
 @pytest.fixture(scope='function')
-def s3():
+def aws_credentials():
+    """Mocked AWS Credentials for moto."""
+    os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
+    os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
+    os.environ['AWS_SECURITY_TOKEN'] = 'testing'
+    os.environ['AWS_SESSION_TOKEN'] = 'testing'
+
+
+@pytest.fixture(scope='function')
+def s3(aws_credentials):
     """Mocked S3 Fixture."""
     with mock_s3():
         yield boto3.client('s3', region_name='us-east-1')
 
 
 @pytest.fixture(scope='function')
-def ec2():
+def ec2(aws_credentials):
     """Mocked EC2 Fixture."""
     with mock_ec2():
         yield boto3.client('ec2', region_name='us-east-1')
 
 
 @pytest.fixture(scope='function')
-def sts():
+def sts(aws_credentials):
     """Mocked STS Fixture."""
     with mock_sts():
         yield boto3.client('sts', region_name='us-east-1')
 
 
 @pytest.fixture(scope='function')
-def iam():
+def iam(aws_credentials):
     """Mocked IAM Fixture."""
     with mock_iam():
         yield boto3.client('iam', region_name='us-east-1')
 
 
 @pytest.fixture(scope='function')
-def dynamodb():
+def dynamodb(aws_credentials):
     """Mocked DynamoDB Fixture."""
     with mock_dynamodb2():
         yield boto3.client('dynamodb', region_name='us-east-1')
 
 
-# pylint: disable=W0621,W0613
 @pytest.fixture(scope='function')
 def retry():
     """Mock the retry library so that it doesn't retry."""
@@ -136,7 +145,7 @@ def historical_role(iam, sts):
 
 
 @pytest.fixture(scope='function')
-def historical_sqs():
+def historical_sqs(aws_credentials):
     """Create the Mocked SQS queues that are used throughout Historical."""
     with mock_sqs():
         client = boto3.client('sqs', region_name='us-east-1')
@@ -263,40 +272,105 @@ def mock_lambda_environment():
     return MockedContext()
 
 
+@pytest.fixture(scope="function")
+def iam_techs(iam):
+    """Creates and setups up IAM things"""
+    items = dict()
+
+    # Role
+    items['role'] = iam.create_role(
+        Path='/',
+        RoleName='Testrole',
+        AssumeRolePolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "ec2.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }),
+        Description='Test Description'
+    )['Role']
+
+    # Instance Profile:
+    iam.create_instance_profile(InstanceProfileName='TestIP')
+    iam.add_role_to_instance_profile(InstanceProfileName='TestIP', RoleName='Testrole')
+
+    # User
+    items['user'] = iam.create_user(Path='/', UserName='Testuser')['User']
+
+    # Group
+    items['group'] = iam.create_group(Path='/', GroupName='Testgroup')['Group']
+
+    # Policy
+    items['policy'] = iam.create_policy(
+        PolicyName='Testpolicy',
+        Path='/',
+        PolicyDocument=json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": "s3:ListBucket",
+                    "Resource": "*",
+                    "Effect": "Allow",
+                }
+            ]
+        }),
+        Description='Test Policy'
+    )['Policy']
+
+    # SSL:
+    items['serverCertificate'] = iam.upload_server_certificate(
+        ServerCertificateName='TestserverCertificate',
+        CertificateBody="""-----BEGIN CERTIFICATE-----
+            MIIBpzCCARACCQCY5yOdxCTrGjANBgkqhkiG9w0BAQsFADAXMRUwEwYDVQQKDAxt
+            b3RvIHRlc3RpbmcwIBcNMTgxMTA1MTkwNTIwWhgPMjI5MjA4MTkxOTA1MjBaMBcx
+            FTATBgNVBAoMDG1vdG8gdGVzdGluZzCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkC
+            gYEA1Jn3g2h7LD3FLqdpcYNbFXCS4V4eDpuTCje9vKFcC3pi/01147X3zdfPy8Mt
+            ZhKxcREOwm4NXykh23P9KW7fBovpNwnbYsbPqj8Hf1ZaClrgku1arTVhEnKjx8zO
+            vaR/bVLCss4uE0E0VM1tJn/QGQsfthFsjuHtwx8uIWz35tUCAwEAATANBgkqhkiG
+            9w0BAQsFAAOBgQBWdOQ7bDc2nWkUhFjZoNIZrqjyNdjlMUndpwREVD7FQ/DuxJMj
+            FyDHrtlrS80dPUQWNYHw++oACDpWO01LGLPPrGmuO/7cOdojPEd852q5gd+7W9xt
+            8vUH+pBa6IBLbvBp+szli51V3TLSWcoyy4ceJNQU2vCkTLoFdS0RLd/7tQ==
+            -----END CERTIFICATE-----""",
+        PrivateKey='SomePrivateKey')
+
+    metadata = items['serverCertificate'].pop('ServerCertificateMetadata')
+    items['serverCertificate'].update(metadata)
+
+    return items
+
+
 @pytest.fixture(scope='function')
-def current_security_group_table():
+def current_security_group_table(dynamodb):
     """Create the Current Security Group Table."""
     from historical.security_group.models import CurrentSecurityGroupModel
-    mock_dynamodb2().start()
     yield CurrentSecurityGroupModel.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
-    mock_dynamodb2().stop()
 
 
 @pytest.fixture(scope='function')
-def durable_security_group_table():
+def durable_security_group_table(dynamodb):
     """Create the Durable Security Group Table."""
     from historical.security_group.models import DurableSecurityGroupModel
-    mock_dynamodb2().start()
     yield DurableSecurityGroupModel.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
-    mock_dynamodb2().stop()
 
 
 @pytest.fixture(scope='function')
-def current_vpc_table():
+def current_vpc_table(dynamodb):
     """Create the Current VPC Table."""
     from historical.vpc.models import CurrentVPCModel
-    mock_dynamodb2().start()
     yield CurrentVPCModel.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
-    mock_dynamodb2().stop()
 
 
 @pytest.fixture(scope='function')
-def durable_vpc_table():
+def durable_vpc_table(dynamodb):
     """Create the Durable VPC Table."""
     from historical.vpc.models import DurableVPCModel
-    mock_dynamodb2().start()
     yield DurableVPCModel.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
-    mock_dynamodb2().stop()
 
 
 @pytest.fixture(scope='function')
@@ -311,3 +385,17 @@ def durable_s3_table(dynamodb):
     """Create the Durable S3 Table."""
     from historical.s3.models import DurableS3Model
     yield DurableS3Model.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
+
+
+@pytest.fixture(scope='function')
+def current_iam_table(dynamodb):
+    """Create the Current IAM Table."""
+    from historical.iam.models import CurrentIAMModel
+    yield CurrentIAMModel.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)
+
+
+@pytest.fixture(scope='function')
+def durable_IAM_table(dynamodb):
+    """Create the Durable IAM Table."""
+    from historical.iam.models import DurableIAMModel
+    yield DurableIAMModel.create_table(read_capacity_units=1, write_capacity_units=1, wait=True)

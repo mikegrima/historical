@@ -60,18 +60,26 @@ def remove_global_dynamo_specific_fields(obj):
     return obj
 
 
-def remove_current_specific_fields(obj):
-    """Remove all fields that belong to the Current table -- that don't belong in the Durable table"""
+def remove_current_specific_fields(obj, additional_fields=None):
+    """Remove all fields that belong to the Current table -- that don't belong in the Durable table.
+
+    :param obj:
+    :param additional_fields: This is a list of optional fields that should be popped off.
+    """
     obj = remove_global_dynamo_specific_fields(obj)
 
     obj.pop("ttl", None)
     obj.pop("eventSource", None)
 
+    if additional_fields:
+        for field in additional_fields:
+            obj.pop(field, None)
+
     return obj
 
 
 def remove_durable_specific_fields(obj):
-    """Remove all fields that belong to the Durable table -- that don't belong in the Durable table"""
+    """Remove all fields that belong to the Durable table -- that don't belong in the Current table"""
     obj = remove_global_dynamo_specific_fields(obj)
 
     # Add here if any are required in the future.

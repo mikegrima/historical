@@ -313,7 +313,7 @@ def test_differ(current_security_group_table, durable_security_group_table, mock
     assert DurableSecurityGroupModel.count() == 4
 
 
-# pylint: disable=W0613
+# pylint: disable=W0613,R0914
 def test_collector(historical_role, mock_lambda_environment, historical_sqs, security_groups,
                    current_security_group_table):
     """Tests the Collector."""

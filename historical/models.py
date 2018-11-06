@@ -132,13 +132,16 @@ class HistoricalPollerTaskEventModel(Schema):
     account_id = fields.Str(required=True)
     region = fields.Str(required=True)
     next_token = fields.Str(load_from='NextToken', dump_to='NextToken')
+    extra = fields.Dict(load_from='Extra', dump_to='Extra')
 
-    def serialize_me(self, account_id, region, next_token=None):
+    def serialize_me(self, account_id, region, next_token=None, extra=None):
         """Dumps the proper JSON for the schema.
 
         :param account_id:
         :param region:
         :param next_token:
+        :param extra: This is a free-field that can be used to add additional information that my be useful for the
+                      poller. Example: IAM technology types.
         :return:
         """
         payload = {
@@ -148,6 +151,9 @@ class HistoricalPollerTaskEventModel(Schema):
 
         if next_token:
             payload['next_token'] = next_token
+
+        if extra:
+            payload['extra'] = extra
 
         return self.dumps(payload).data
 

@@ -73,11 +73,11 @@ def produce_events(events, queue_url, batch_size=10, randomize_delay=0):
         client.send_message_batch(Entries=records, QueueUrl=queue_url)
 
 
-def group_records_by_type(records, update_events):
+def group_records_by_type(records, delete_events):
     """Break records into two lists; create/update events and delete events.
 
     :param records:
-    :param update_events:
+    :param delete_events:
     :return update_records, delete_records:
     """
     update_records, delete_records = [], []
@@ -93,9 +93,9 @@ def group_records_by_type(records, update_events):
 
         # Do not capture error events:
         if not record["detail"].get("errorCode"):
-            if record['detail']['eventName'] in update_events:
-                update_records.append(record)
-            else:
+            if record['detail']['eventName'] in delete_events:
                 delete_records.append(record)
+            else:
+                update_records.append(record)
 
     return update_records, delete_records

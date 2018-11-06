@@ -21,6 +21,7 @@ from historical.models import (
 
 
 VERSION = 1
+POLLING_VERSION = 1
 
 
 class VPCModel:
@@ -90,7 +91,7 @@ class VPCPollingEventModel(HistoricalPollingBaseModel):
         :param data:
         :return:
         """
-        data['version'] = '1'
+        data['version'] = f'{POLLING_VERSION}'
         return data
 
     def serialize(self, account, group):

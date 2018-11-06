@@ -13,7 +13,9 @@ from historical.constants import CURRENT_REGION
 from historical.models import AWSHistoricalMixin, CurrentHistoricalModel, DurableHistoricalModel,\
     HistoricalPollingBaseModel, HistoricalPollingEventDetail
 
+
 VERSION = 1
+POLLING_VERSION = 1
 
 
 class SecurityGroupModel:
@@ -76,7 +78,7 @@ class SecurityGroupPollingEventModel(HistoricalPollingBaseModel):
         :param data:
         :return:
         """
-        data['version'] = '1'
+        data['version'] = f'{POLLING_VERSION}'
         return data
 
     def serialize(self, account, group, region):

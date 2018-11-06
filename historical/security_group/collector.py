@@ -25,15 +25,6 @@ LOG = logging.getLogger('historical')
 LOG.setLevel(LOGGING_LEVEL)
 
 
-UPDATE_EVENTS = [
-    'AuthorizeSecurityGroupEgress',
-    'AuthorizeSecurityGroupIngress',
-    'RevokeSecurityGroupEgress',
-    'RevokeSecurityGroupIngress',
-    'CreateSecurityGroup',
-    'PollSecurityGroups'
-]
-
 DELETE_EVENTS = [
     'DeleteSecurityGroup'
 ]
@@ -180,7 +171,7 @@ def handler(event, context):  # pylint: disable=W0613
 
     # Split records into two groups, update and delete.
     # We don't want to query for deleted records.
-    update_records, delete_records = group_records_by_type(records, UPDATE_EVENTS)
+    update_records, delete_records = group_records_by_type(records, DELETE_EVENTS)
     capture_delete_records(delete_records)
 
     # filter out error events

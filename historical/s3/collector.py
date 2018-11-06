@@ -13,38 +13,15 @@ from pynamodb.exceptions import PynamoDBConnectionError
 from raven_python_lambda import RavenLambdaWrapper
 from cloudaux.orchestration.aws.s3 import get_bucket
 
+from historical.common.cloudwatch import get_principal, get_user_identity, filter_request_parameters, get_region
 from historical.common.sqs import group_records_by_type
 from historical.constants import CURRENT_REGION, HISTORICAL_ROLE, LOGGING_LEVEL
-from historical.common import cloudwatch
 from historical.common.util import deserialize_records
 from historical.s3.models import CurrentS3Model, VERSION
 
 logging.basicConfig()
 LOG = logging.getLogger('historical')
 LOG.setLevel(LOGGING_LEVEL)
-
-
-UPDATE_EVENTS = [
-    'PollS3',   # Polling event
-    'DeleteBucketCors',
-    'DeleteBucketLifecycle',
-    'DeleteBucketPolicy',
-    'DeleteBucketReplication',
-    'DeleteBucketTagging',
-    'DeleteBucketWebsite',
-    'CreateBucket',
-    'PutBucketAcl',
-    'PutBucketCors',
-    'PutBucketLifecycle',
-    'PutBucketPolicy',
-    'PutBucketLogging',
-    'PutBucketNotification',
-    'PutBucketReplication',
-    'PutBucketTagging',
-    'PutBucketRequestPayment',
-    'PutBucketVersioning',
-    'PutBucketWebsite'
-]
 
 
 DELETE_EVENTS = [
@@ -54,17 +31,17 @@ DELETE_EVENTS = [
 
 def create_delete_model(record):
     """Create an S3 model from a record."""
-    arn = f"arn:aws:s3:::{cloudwatch.filter_request_parameters('bucketName', record)}"
+    arn = f"arn:aws:s3:::{filter_request_parameters('bucketName', record)}"
     LOG.debug(f'[-] Deleting Dynamodb Records. Hash Key: {arn}')
 
     data = {
         'arn': arn,
-        'principalId': cloudwatch.get_principal(record),
-        'userIdentity': cloudwatch.get_user_identity(record),
+        'principalId': get_principal(record),
+        'userIdentity': get_user_identity(record),
         'accountId': record['account'],
         'eventTime': record['detail']['eventTime'],
-        'BucketName': cloudwatch.filter_request_parameters('bucketName', record),
-        'Region': cloudwatch.get_region(record),
+        'BucketName': filter_request_parameters('bucketName', record),
+        'Region': get_region(record),
         'Tags': {},
         'configuration': {},
         'eventSource': record['detail']['eventSource'],
@@ -146,10 +123,11 @@ def process_update_records(update_records):
                 raise Exception(cerr)
 
             # Pull out the fields we want:
+
             data = {
                 'arn': f'arn:aws:s3:::{b_name}',
-                'principalId': cloudwatch.get_principal(item['eventDetails']),
-                'userIdentity': cloudwatch.get_user_identity(item['eventDetails']),
+                'principalId': get_principal(item['eventDetails']),
+                'userIdentity': get_user_identity(item['eventDetails']),
                 'userAgent': item['eventDetails']['detail'].get('userAgent'),
                 'sourceIpAddress': item['eventDetails']['detail'].get('sourceIPAddress'),
                 'requestParameters': item['eventDetails']['detail'].get('requestParameters'),
@@ -190,9 +168,11 @@ def handler(event, context):  # pylint: disable=W0613
 
     # Split records into two groups, update and delete.
     # We don't want to query for deleted records.
-    update_records, delete_records = group_records_by_type(records, UPDATE_EVENTS)
+    update_records, delete_records = group_records_by_type(records, DELETE_EVENTS)
 
     LOG.debug('[@] Processing update records...')
+    # Filter out error events:
+    update_records = [e for e in update_records if not e['detail'].get('errorCode')]
     process_update_records(update_records)
     LOG.debug('[@] Completed processing of update records.')
 

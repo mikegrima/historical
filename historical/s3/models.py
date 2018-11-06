@@ -15,6 +15,7 @@ from historical.models import AWSHistoricalMixin, CurrentHistoricalModel, Durabl
 
 # The schema version -- TODO: Get this from CloudAux
 VERSION = 9
+POLLING_VERSION = 1
 
 
 class S3Model:
@@ -87,7 +88,7 @@ class S3PollingEventModel(HistoricalPollingBaseModel):
         :param data:
         :return:
         """
-        data["version"] = "1"
+        data["version"] = f'{POLLING_VERSION}'
 
         return data
 

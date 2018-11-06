@@ -17,8 +17,7 @@ with open(os.path.join(ROOT, "historical", "__about__.py")) as f:
 
 
 install_requires = [
-    'boto3>=1.9.47',
-    'cloudaux>=1.4.14',
+    'cloudaux>=1.5.7',
     'click>=6.7',
     'pynamodb>=3.3.1',
     'deepdiff>=3.3.0',
@@ -34,10 +33,11 @@ tests_require = [
     'pytest==3.1.3',
     'pytest-cov>=2.5.1',
     'mock==2.0.0',
-    'moto>=1.3.2',
+    'moto>=1.3.7',
     'coveralls==1.1',
     'factory-boy==2.9.2',
     'tox==3.4.0',
+    'requests'
 ]
 
 

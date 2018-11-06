@@ -37,3 +37,6 @@ REGION_ATTR = os.environ.get('REGION_ATTR', 'Region')
 SIMPLE_DURABLE_PROXY = os.environ.get('SIMPLE_DURABLE_PROXY', False)
 LOGGING_LEVEL = extract_log_level_from_environment('LOGGING_LEVEL', logging.INFO)
 EVENT_TOO_BIG_FLAG = 'event_too_big'
+
+GSI_READ_CAP = int(os.environ.get('GSI_READ_CAP', 100))
+GSI_WRITE_CAP = int(os.environ.get('GSI_WRITE_CAP', 1))  # Shouldn't really need to write to the GSIs.

@@ -11,7 +11,7 @@ from datetime import datetime
 from historical.constants import CURRENT_REGION
 
 
-def filter_request_parameters(field_name, msg, look_in_response=False):
+def filter_request_parameters(field_name: str, msg: dict, look_in_response=False):
     """
     From an event, extract the field name from the message.
     Different API calls put this information in different places, so check a few places.
@@ -33,35 +33,40 @@ def filter_request_parameters(field_name, msg, look_in_response=False):
     return val
 
 
-def get_user_identity(event):
+def get_user_identity(event: dict):
     """Gets event identity from event."""
     return event['detail'].get('userIdentity', {})
 
 
-def get_principal(event):
+def get_principal(event: dict):
     """Gets principal id from the event"""
     user_identity = get_user_identity(event)
     return user_identity.get('principalId', '').split(':')[-1]
 
 
-def get_region(event):
+def get_region(event: dict):
     """Get region from event details."""
     return event['detail'].get('awsRegion', CURRENT_REGION)
 
 
-def get_event_time(event):
+def get_event_time(event: dict):
     """Gets the event time from an event"""
     return datetime.strptime(event['detail']['eventTime'], "%Y-%m-%dT%H:%M:%SZ")
 
 
-def get_account_id(event):
+def get_account_id(event: dict):
     """Gets the account id from an event"""
     return event['account']
 
 
-def get_collected_details(event):
+def get_collected_details(event: dict):
     """Gets collected details if the technology's poller already described the given asset"""
     return event['detail'].get('collected')
+
+
+def get_event_name(event: dict):
+    """Gets the name of the event"""
+    return event['detail']['eventName']
 
 
 def get_historical_base_info(event):
